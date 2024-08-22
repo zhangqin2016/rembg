@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Blend Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .image-row {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+        .image-container {
+            position: relative;
+            cursor: pointer;
+            margin: 0 10px;
+            border: 2px solid #ddd;
+        }
+        .image-container img {
+            max-width: 100%;
+            max-height: 300px; /* 限制图片最大高度 */
+            object-fit: contain;
+        }
+        .form-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .form-container label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-container input[type="number"] {
+            margin-bottom: 10px;
+        }
+        .submit-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>上传人物图片和背景图片</h2>
+
+    <div class="image-row">
+        <div class="image-container" id="foreground-container">
+            <h3>点击此处上传人物图片</h3>
+            <input type="file" id="foreground" accept="image/*" style="display: none;">
+            <img id="foreground-preview" alt="人物图片预览">
+        </div>
+
+        <div class="image-container" id="background-container">
+            <h3>点击此处上传背景图片</h3>
+            <input type="file" id="background" accept="image/*" style="display: none;">
+            <img id="background-preview" alt="背景图片预览">
+        </div>
+
+        <div class="image-container">
+            <h3>合成后的图片</h3>
+            <img id="result-image" alt="合成图片">
+        </div>
+    </div>
+
+    <div class="form-container">
+        <label for="max-scale">最大缩放比例 (0-1):</label>
+        <input type="number" id="max-scale" value="0.5" step="0.01" min="0" max="1"><br>
+
+        <label for="ground-ratio">地面位置比例 (0-1):</label>
+        <input type="number" id="ground-ratio" value="0.8" step="0.01" min="0" max="1"><br>
+
+        <button class="submit-button" type="button" id="submit-button">提交</button>
+    </div>
+</div>
+
+<script>
+    const foregroundInput = document.getElementById('foreground');
+    const backgroundInput = document.getElementById('background');
+    const foregroundPreview = document.getElementById('foreground-preview');
+    const backgroundPreview = document.getElementById('background-preview');
+    const resultImage = document.getElementById('result-image');
+
+    document.getElementById('foreground-container').addEventListener('click', () => {
+        foregroundInput.click();
+    });
+
+    document.getElementById('background-container').addEventListener('click', () => {
+        backgroundInput.click();
+    });
+
+    foregroundInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                foregroundPreview.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    backgroundInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                backgroundPreview.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    document.getElementById('submit-button').addEventListener('click', function() {
+        const foregroundFile = foregroundInput.files[0];
+        const backgroundFile = backgroundInput.files[0];
+        const maxScale = parseFloat(document.getElementById('max-scale').value);
+        const groundRatio = parseFloat(document.getElementById('ground-ratio').value);
+
+        if (!foregroundFile || !backgroundFile) {
+            alert('请上传人物图片和背景图片');
+            return;
+        }
+
+        const readerForeground = new FileReader();
+        const readerBackground = new FileReader();
+
+        readerForeground.onloadend = function() {
+            const foregroundBase64 = readerForeground.result.split(',')[1];
+
+            readerBackground.onloadend = function() {
+                const backgroundBase64 = readerBackground.result.split(',')[1];
+
+                fetch('http://localhost:5000/blend', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        foreground: foregroundBase64,
+                        background: backgroundBase64,
+                        max_fg_scale: maxScale,
+                        ground_y_ratio: groundRatio
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.result) {
+                        resultImage.src = 'data:image/png;base64,' + data.result;
+                    } else if (data.error) {
+                        alert('合成时出错: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('请求失败: ' + error.message);
+                });
+            };
+
+            readerBackground.readAsDataURL(backgroundFile);
+        };
+
+        readerForeground.readAsDataURL(foregroundFile);
+    });
+</script>
+
+</body>
+</html>
