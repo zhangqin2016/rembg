@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify , render_template
 from rembg import remove
 from PIL import Image, ImageOps
 import io
@@ -66,6 +66,9 @@ def blend_images(foreground, background, max_fg_scale=0.5, ground_y_ratio=0.8):
     background_with_fg.paste(resized_foreground, (left, top), resized_foreground)
 
     return background_with_fg
+@app.route('/')
+def index():
+    return render_template('test.html')
 
 @app.route('/blend', methods=['POST'])
 def blend():
